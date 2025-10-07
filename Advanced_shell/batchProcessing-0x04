@@ -1,0 +1,48 @@
+#!/bin/bash
+
+POKEMONS=("bulbasaur" "ivysaur" "venusaur" "charmander" "charmeleon")
+API_URL="https://pokeapi.co/api/v2/pokemon"
+OUTPUT_DIR="pokemon_data_parallel"
+ERROR_LOG="parallel_errors.txt"
+
+mkdir -p "$OUTPUT_DIR"
+> "$ERROR_LOG"
+
+echo "Starting parallel data retrieval..."
+echo
+
+fetch_pokemon() {
+    local pokemon=$1
+    local output_file="$OUTPUT_DIR/$pokemon.json"
+    local retries=3
+
+    echo "Fetching data for $pokemon..."
+
+    for ((i=1; i<=retries; i++)); do
+        response=$(curl -s -w "%{http_code}" -o "$output_file.tmp" "$API_URL/$pokemon")
+        status_code="${response:(-3)}"
+
+        if [[ "$status_code" == "200" ]]; then
+            mv "$output_file.tmp" "$output_file"
+            echo "$pokemon fetched successfully (Attempt $i)"
+            return 0
+        else
+            echo "Attempt $i failed for $pokemon (HTTP $status_code)"
+            sleep 1
+        fi
+    done
+
+    echo "Failed to fetch data for $pokemon after $retries attempts" | tee -a "$ERROR_LOG"
+    rm -f "$output_file.tmp"
+}
+
+for pokemon in "${POKEMONS[@]}"; do
+    fetch_pokemon "$pokemon" &
+done
+
+wait
+
+echo
+echo "All parallel fetches completed."
+echo "Error log (if any):"
+cat "$ERROR_LOG"
