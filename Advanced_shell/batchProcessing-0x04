@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 POKEMONS=("bulbasaur" "ivysaur" "venusaur" "charmander" "charmeleon")
 API_URL="https://pokeapi.co/api/v2/pokemon"
@@ -6,10 +7,10 @@ OUTPUT_DIR="pokemon_data_parallel"
 ERROR_LOG="parallel_errors.txt"
 
 mkdir -p "$OUTPUT_DIR"
-> "$ERROR_LOG"
+: > "$ERROR_LOG"
 
-echo "Starting parallel data retrieval..."
-echo
+PIDS=()
+declare -A PID_NAME
 
 fetch_pokemon() {
     local pokemon=$1
@@ -34,15 +35,68 @@ fetch_pokemon() {
 
     echo "Failed to fetch data for $pokemon after $retries attempts" | tee -a "$ERROR_LOG"
     rm -f "$output_file.tmp"
+    return 1
 }
 
 for pokemon in "${POKEMONS[@]}"; do
     fetch_pokemon "$pokemon" &
+    pid=$!
+    PIDS+=("$pid")
+    PID_NAME["$pid"]="$pokemon"
+    sleep 0.1
 done
 
-wait
+echo
+echo "Currently running jobs:"
+jobs
+
+trap 'echo "Signal received — killing background jobs"; for p in "${PIDS[@]}"; do kill "$p" 2>/dev/null || true; done; wait; exit 1' INT TERM
+
+max_wait=60
+start_time=$(date +%s)
+
+while true; do
+    any_running=false
+    for p in "${PIDS[@]}"; do
+        if kill -0 "$p" 2>/dev/null; then
+            any_running=true
+            break
+        fi
+    done
+
+    $any_running || break
+
+    now=$(date +%s)
+    if (( now - start_time >= max_wait )); then
+        echo "Timeout ($max_wait s) reached — killing remaining jobs..."
+        for p in "${PIDS[@]}"; do
+            if kill -0 "$p" 2>/dev/null; then
+                echo "Killing ${PID_NAME[$p]} (pid $p)..."
+                kill "$p" 2>/dev/null || true
+            fi
+        done
+
+        sleep 2
+        for p in "${PIDS[@]}"; do
+            if kill -0 "$p" 2>/dev/null; then
+                echo "Force-killing ${PID_NAME[$p]} (pid $p)..."
+                kill -9 "$p" 2>/dev/null || true
+            fi
+        done
+        break
+    fi
+    sleep 1
+done
+
+for p in "${PIDS[@]}"; do
+    if wait "$p"; then
+        :
+    else
+        echo "Process $p (${PID_NAME[$p]}) exited non-zero" | tee -a "$ERROR_LOG"
+    fi
+done
 
 echo
-echo "All parallel fetches completed."
+echo "All parallel fetches completed (or were handled)."
 echo "Error log (if any):"
-cat "$ERROR_LOG"
+cat "$ERROR_LOG" || true
