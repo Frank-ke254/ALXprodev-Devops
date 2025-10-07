@@ -11,7 +11,7 @@ fi
 echo "Name,Height(m),Weight(kg)" > "$OUTPUT_FILE"
 
 for file in "$DATA_DIR"/*.json; do
-    name=$(jq -r '.name' "$file")
+    name=$(jq -r '.name' "$file" | sed 's/.*/\L&/')
     height=$(jq -r '.height' "$file")
     weight=$(jq -r '.weight' "$file")
 
@@ -20,6 +20,8 @@ for file in "$DATA_DIR"/*.json; do
 
     echo "$name,$height_m,$weight_kg" >> "$OUTPUT_FILE"
 done
+
+sed -i 's/\b[a-z]/\u&/g' "$OUTPUT_FILE"
 
 echo "Report generated: $OUTPUT_FILE"
 echo
