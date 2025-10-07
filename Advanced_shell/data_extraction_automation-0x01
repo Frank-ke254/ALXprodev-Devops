@@ -1,18 +1,11 @@
 #!/bin/bash
 
-INPUT_FILE="data.json"
+name=$(jq -r '.name' data.json)
+height=$(jq -r '.height' data.json)
+weight=$(jq -r '.weight' data.json)
+type=$(jq -r '.types[0].type.name' data.json)
 
-if [ ! -f "$INPUT_FILE" ]; then
-  echo "Error: $INPUT_FILE not found. Please run the first script to fetch data."
-  exit 1
-fi
+formatted_height=$(awk "BEGIN {printf \"%.1f\", $height / 10}")
+formatted_weight=$(awk "BEGIN {printf \"%.1f\", $weight / 10}")
 
-NAME=$(jq -r '.name' "$INPUT_FILE")
-HEIGHT=$(jq -r '.height' "$INPUT_FILE")
-WEIGHT=$(jq -r '.weight' "$INPUT_FILE")
-TYPE=$(jq -r '.types[0].type.name' "$INPUT_FILE")
-
-HEIGHT_M=$(echo "$HEIGHT" | awk '{printf "%.1f", $1 / 10}')
-WEIGHT_KG=$(echo "$WEIGHT" | awk '{printf "%.0f", $1 / 10}')
-
-echo "$NAME is of type $TYPE, weighs ${WEIGHT_KG}kg, and is ${HEIGHT_M}m tall." | sed 's/\b\(.\)/\u\1/'
+echo "$name is of type $type, weighs ${formatted_weight}kg, and is ${formatted_height}m tall."
