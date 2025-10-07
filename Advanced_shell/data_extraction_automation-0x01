@@ -1,11 +1,13 @@
 #!/bin/bash
 
-name=$(jq -r '.name' data.json)
-height=$(jq -r '.height' data.json)
+name=$(jq -r '.name' data.json | sed 's/.*/\L&/')
+type=$(jq -r '.types[0].type.name' data.json | sed 's/.*/\L&/')
 weight=$(jq -r '.weight' data.json)
-type=$(jq -r '.types[0].type.name' data.json)
+height=$(jq -r '.height' data.json)
 
-formatted_height=$(awk "BEGIN {printf \"%.1f\", $height / 10}")
 formatted_weight=$(awk "BEGIN {printf \"%.1f\", $weight / 10}")
+formatted_height=$(awk "BEGIN {printf \"%.1f\", $height / 10}")
 
-echo "$name is of type $type, weighs ${formatted_weight}kg, and is ${formatted_height}m tall."
+output=$(echo "$name is of type $type, weighs ${formatted_weight}kg, and is ${formatted_height}m tall." | sed 's/^./\L&/')
+
+echo "$output"
